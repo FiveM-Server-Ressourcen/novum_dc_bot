@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "q6O7c8Nn2SDsgtZAX-o1b"
+uri = "file://artifacts/discord-bot/src/assets/test_preview.jpg"
+type = "image"
+title = "Vorschau: Welcome-Banner"

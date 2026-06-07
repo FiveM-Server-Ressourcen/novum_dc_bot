@@ -1,7 +1,6 @@
 import { EmbedBuilder, AttachmentBuilder } from 'discord.js';
 import { CHANNELS, ROLES } from '../config.js';
-import { BANNER_PATH } from '../generateBanner.js';
-import { existsSync } from 'fs';
+import { generateWelcomeBanner } from '../generateBanner.js';
 
 export default {
   name: 'guildMemberAdd',
@@ -22,24 +21,27 @@ export default {
     const embed = new EmbedBuilder()
       .setColor(0x8a2be2)
       .setDescription(
-        `## 🌆 Willkommen auf NOVUM RP, ${member}!\n\n` +
-        `Schön, dass du den Weg in unsere Stadt gefunden hast.\n` +
-        `Du bist unser **${guild.memberCount}. Mitglied** — mach's dir gemütlich.\n\n` +
+        `## Willkommen auf NOVUM RP, ${member}! 🌆\n\n` +
+        `Du bist unser **${guild.memberCount}. Mitglied**.\n\n` +
         `**🚀 So legst du los:**\n` +
-        `> 📜 Lies unsere <#${CHANNELS.regeln}> durch\n` +
-        `> 🏁 Schau dir <#${CHANNELS.startHier}> an\n` +
-        `> 🔔 Hol dir Rollen in <#${CHANNELS.pingRollen}>\n` +
-        `> 🎟️ Bei Fragen → <#${CHANNELS.tickets}>\n\n` +
+        `> 📜 Lies unsere <#${CHANNELS.regeln}>\n` +
+        `> 🏁 Starte mit <#${CHANNELS.startHier}>\n` +
+        `> 🔔 Rollen holen in <#${CHANNELS.pingRollen}>\n` +
+        `> 🎟️ Fragen → <#${CHANNELS.tickets}>\n\n` +
         `*Viel Spaß im Roleplay!* 🎮`
       )
-      .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 256 }))
       .setFooter({ text: `NOVUM Roleplay Server • ${new Date().toLocaleDateString('de-DE')}` });
 
-    // Banner anhängen wenn vorhanden
-    if (existsSync(BANNER_PATH)) {
-      const banner = new AttachmentBuilder(BANNER_PATH, { name: 'welcome_banner.jpg' });
-      files.push(banner);
-      embed.setImage('attachment://welcome_banner.jpg');
+    // Banner mit Avatar + Name dynamisch generieren
+    try {
+      const bannerBuffer = await generateWelcomeBanner(member);
+      if (bannerBuffer) {
+        const attachment = new AttachmentBuilder(bannerBuffer, { name: 'welcome.jpg' });
+        files.push(attachment);
+        embed.setImage('attachment://welcome.jpg');
+      }
+    } catch (err) {
+      console.error('[Welcome] Banner-Generierung fehlgeschlagen:', err.message);
     }
 
     await welcomeChannel.send({ content: `${member}`, embeds: [embed], files });

@@ -3,11 +3,8 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  AttachmentBuilder,
 } from 'discord.js';
 import { CHANNELS, PING_ROLES } from './config.js';
-import { BANNER_PATH } from './generateBanner.js';
-import { existsSync } from 'fs';
 
 // ── Regeln ──────────────────────────────────────────────────────────────────
 const RULES_EMBED = new EmbedBuilder()
