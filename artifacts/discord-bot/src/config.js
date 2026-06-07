@@ -19,6 +19,7 @@ export const CHANNELS = {
   spielerMeldungen:  '1513087681695973396',
   supportInfo:       '1513087756434276392',
   ticketKategorie:   '1513127386529534002',  // Kategorie für neue Ticket-Kanäle
+  pingRollen:        '1513132932636741693',  // Kanal für das Ping-Rollen-Panel
 };
 
 // ── Rollen ───────────────────────────────────────────────────────
