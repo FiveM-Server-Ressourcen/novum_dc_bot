@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import { Client, GatewayIntentBits, Collection, Partials } from 'discord.js';
 import { readdirSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -6,6 +6,11 @@ import { dirname, join } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// .env explizit laden
+dotenv.config({
+  path: join(__dirname, '.env')
+});
 
 const client = new Client({
   intents: [
@@ -49,11 +54,11 @@ for (const file of eventFiles) {
   console.log(`[Events] Loaded: ${ev.name}`);
 }
 
-// Token laden
 const token = process.env.DISCORD_TOKEN;
 
 if (!token) {
   console.error('[ERROR] DISCORD_TOKEN ist nicht gesetzt!');
+  console.log('Suche nach .env in:', join(__dirname, '.env'));
   process.exit(1);
 }
 
