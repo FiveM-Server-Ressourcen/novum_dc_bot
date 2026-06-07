@@ -1,18 +1,20 @@
 import { EmbedBuilder } from 'discord.js';
-import { getChannel, getGuildConfig } from '../config.js';
+import { CHANNELS, ROLES } from '../config.js';
 
 export default {
   name: 'guildMemberAdd',
   async execute(member) {
     const guild = member.guild;
-    const cfg = getGuildConfig(guild.id);
 
-    const welcomeChannel = getChannel(guild, 'willkommen');
+    // Spieler-Rolle automatisch vergeben
+    try {
+      await member.roles.add(ROLES.spieler);
+    } catch (e) {
+      console.error('[Welcome] Konnte Spieler-Rolle nicht vergeben:', e.message);
+    }
+
+    const welcomeChannel = guild.channels.cache.get(CHANNELS.willkommen);
     if (!welcomeChannel) return;
-
-    const regelnId    = cfg['regeln'];
-    const startId     = cfg['start-hier'];
-    const ticketsId   = cfg['tickets'];
 
     const embed = new EmbedBuilder()
       .setColor(0x5865f2)
@@ -20,10 +22,10 @@ export default {
       .setDescription(
         `Hey ${member}, schön dass du zu uns gefunden hast!\n\n` +
         `**Hier findest du alles was du brauchst:**\n` +
-        (regelnId  ? `📜 Lies zuerst unsere <#${regelnId}>\n` : '') +
-        (startId   ? `🚀 Starte mit <#${startId}>\n` : '') +
-        (ticketsId ? `🎟️ Bei Fragen öffne ein <#${ticketsId}>\n` : '') +
-        `\nWir freuen uns auf dich! 🎉`
+        `📜 Lies zuerst unsere <#${CHANNELS.regeln}>\n` +
+        `🚀 Starte mit <#${CHANNELS.startHier}>\n` +
+        `🎟️ Bei Fragen öffne ein <#${CHANNELS.tickets}>\n\n` +
+        `Wir freuen uns auf dich! 🎉`
       )
       .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
       .setFooter({ text: `Mitglied #${guild.memberCount}` })

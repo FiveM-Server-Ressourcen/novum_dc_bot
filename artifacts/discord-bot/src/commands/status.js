@@ -1,59 +1,47 @@
-import {
-  SlashCommandBuilder,
-  PermissionFlagsBits,
-  EmbedBuilder,
-} from 'discord.js';
-import { getChannel } from '../config.js';
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { CHANNELS, ROLES } from '../config.js';
 
-const STATUS_CONFIG = {
-  online:   { color: 0x57f287, emoji: '✅', label: 'Online' },
-  wartung:  { color: 0xfee75c, emoji: '⚠️', label: 'Wartung' },
-  offline:  { color: 0xed4245, emoji: '❌', label: 'Offline' },
+const STATUS_MAP = {
+  online:   { color: 0x57f287, emoji: '✅', label: 'Online'   },
+  wartung:  { color: 0xfee75c, emoji: '⚠️', label: 'Wartung'  },
+  offline:  { color: 0xed4245, emoji: '❌', label: 'Offline'  },
   neustart: { color: 0x5865f2, emoji: '🔄', label: 'Neustart' },
 };
 
 export default {
   data: new SlashCommandBuilder()
     .setName('status')
-    .setDescription('Postet einen Server-Status in den konfigurierten server-status Kanal')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
-    .addStringOption(opt =>
-      opt.setName('status')
-        .setDescription('Aktueller Status')
-        .setRequired(true)
+    .setDescription('Postet einen Server-Status (Moderator+)')
+    .addStringOption(o =>
+      o.setName('status').setDescription('Status').setRequired(true)
         .addChoices(
-          { name: '✅ Online',   value: 'online' },
-          { name: '⚠️ Wartung', value: 'wartung' },
-          { name: '❌ Offline', value: 'offline' },
+          { name: '✅ Online',    value: 'online'   },
+          { name: '⚠️ Wartung',  value: 'wartung'  },
+          { name: '❌ Offline',  value: 'offline'  },
           { name: '🔄 Neustart', value: 'neustart' },
         )
     )
-    .addStringOption(opt =>
-      opt.setName('nachricht').setDescription('Zusätzliche Informationen').setRequired(false)
-    ),
+    .addStringOption(o => o.setName('nachricht').setDescription('Zusätzliche Infos').setRequired(false))
+    .addBooleanOption(o => o.setName('ping').setDescription('Server-Status Rolle pingen?').setRequired(false)),
 
   async execute(interaction) {
-    const statusKey = interaction.options.getString('status');
-    const nachricht = interaction.options.getString('nachricht');
+    const key      = interaction.options.getString('status');
+    const extra    = interaction.options.getString('nachricht');
+    const doPing   = interaction.options.getBoolean('ping') ?? false;
+    const { color, emoji, label } = STATUS_MAP[key];
 
-    const channel = getChannel(interaction.guild, 'server-status');
-    if (!channel) {
-      return interaction.reply({
-        content: '❌ server-status Kanal nicht konfiguriert. Nutze `/setchannel`.',
-        ephemeral: true,
-      });
-    }
-
-    const { color, emoji, label } = STATUS_CONFIG[statusKey];
+    const channel = interaction.guild.channels.cache.get(CHANNELS.serverStatus);
+    if (!channel) return interaction.reply({ content: '❌ server-status Kanal nicht gefunden.', ephemeral: true });
 
     const embed = new EmbedBuilder()
       .setColor(color)
       .setTitle(`${emoji} Server Status: ${label}`)
-      .setDescription(nachricht ?? `Der Server ist aktuell **${label}**.`)
+      .setDescription(extra ?? `Der Server ist aktuell **${label}**.`)
       .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() })
       .setTimestamp();
 
-    await channel.send({ embeds: [embed] });
-    await interaction.reply({ content: `✅ Status-Update in ${channel} gepostet!`, ephemeral: true });
+    const content = doPing ? `<@&${ROLES.pingServerStatus}>` : undefined;
+    await channel.send({ content, embeds: [embed] });
+    await interaction.reply({ content: `✅ Status-Update gepostet!`, ephemeral: true });
   },
 };

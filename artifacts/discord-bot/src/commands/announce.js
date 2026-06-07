@@ -1,67 +1,44 @@
-import {
-  SlashCommandBuilder,
-  PermissionFlagsBits,
-  EmbedBuilder,
-} from 'discord.js';
-import { getChannel } from '../config.js';
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { CHANNELS, ROLES } from '../config.js';
 
-const KANAL_CHOICES = [
-  { name: '📣 Ankündigungen', value: 'ankuendigungen' },
-  { name: '🛠️ Updates',       value: 'updates' },
-  { name: '📅 Events',        value: 'events' },
+const ZIELE = [
+  { name: '📣 Ankündigungen', value: 'ankuendigungen', channelKey: 'ankuendigungen', pingRole: ROLES.pingAnkuendigungen, color: 0x5865f2, emoji: '📣' },
+  { name: '🛠️ Updates',       value: 'updates',       channelKey: 'updates',        pingRole: ROLES.pingUpdates,        color: 0x57f287, emoji: '🛠️' },
+  { name: '📅 Events',        value: 'events',        channelKey: 'events',         pingRole: ROLES.pingEvents,         color: 0xfee75c, emoji: '📅' },
+  { name: '📡 Server Status', value: 'status',        channelKey: 'serverStatus',   pingRole: ROLES.pingServerStatus,   color: 0xed4245, emoji: '📡' },
 ];
 
 export default {
   data: new SlashCommandBuilder()
     .setName('announce')
-    .setDescription('Erstellt eine Ankündigung in einem konfigurierten Kanal')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
-    .addStringOption(opt =>
-      opt.setName('kanal').setDescription('Zielkanal').setRequired(true).addChoices(...KANAL_CHOICES)
+    .setDescription('Erstellt eine Ankündigung (Moderator+)')
+    .addStringOption(o =>
+      o.setName('ziel').setDescription('Zielkanal').setRequired(true)
+        .addChoices(...ZIELE.map(z => ({ name: z.name, value: z.value })))
     )
-    .addStringOption(opt =>
-      opt.setName('titel').setDescription('Titel der Ankündigung').setRequired(true)
-    )
-    .addStringOption(opt =>
-      opt.setName('nachricht').setDescription('Inhalt der Ankündigung').setRequired(true)
-    )
-    .addBooleanOption(opt =>
-      opt.setName('ping').setDescription('@everyone erwähnen? (Standard: nein)').setRequired(false)
-    ),
+    .addStringOption(o => o.setName('titel').setDescription('Titel').setRequired(true))
+    .addStringOption(o => o.setName('nachricht').setDescription('Inhalt').setRequired(true))
+    .addBooleanOption(o => o.setName('ping').setDescription('Ping-Rolle erwähnen?').setRequired(false)),
 
   async execute(interaction) {
-    const kanalKey  = interaction.options.getString('kanal');
-    const titel     = interaction.options.getString('titel');
-    const nachricht = interaction.options.getString('nachricht');
-    const ping      = interaction.options.getBoolean('ping') ?? false;
+    const zielKey  = interaction.options.getString('ziel');
+    const titel    = interaction.options.getString('titel');
+    const inhalt   = interaction.options.getString('nachricht');
+    const doPing   = interaction.options.getBoolean('ping') ?? false;
 
-    const channel = getChannel(interaction.guild, kanalKey);
-    if (!channel) {
-      return interaction.reply({
-        content: `❌ Kanal nicht konfiguriert. Nutze \`/setchannel\` um ihn zu verknüpfen.`,
-        ephemeral: true,
-      });
-    }
-
-    const colorMap = {
-      ankuendigungen: 0x5865f2,
-      updates:        0x57f287,
-      events:         0xfee75c,
-    };
-    const emojiMap = {
-      ankuendigungen: '📣',
-      updates:        '🛠️',
-      events:         '📅',
-    };
+    const ziel    = ZIELE.find(z => z.value === zielKey);
+    const channel = interaction.guild.channels.cache.get(CHANNELS[ziel.channelKey]);
+    if (!channel) return interaction.reply({ content: '❌ Kanal nicht gefunden.', ephemeral: true });
 
     const embed = new EmbedBuilder()
-      .setColor(colorMap[kanalKey] ?? 0x5865f2)
-      .setTitle(`${emojiMap[kanalKey] ?? '📢'} ${titel}`)
-      .setDescription(nachricht)
+      .setColor(ziel.color)
+      .setTitle(`${ziel.emoji} ${titel}`)
+      .setDescription(inhalt)
       .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() })
       .setTimestamp();
 
-    await channel.send({ content: ping ? '@everyone' : undefined, embeds: [embed] });
-    await interaction.reply({ content: `✅ Ankündigung in ${channel} gepostet!`, ephemeral: true });
+    const content = doPing ? `<@&${ziel.pingRole}>` : undefined;
+    await channel.send({ content, embeds: [embed] });
+    await interaction.reply({ content: `✅ Gepostet in ${channel}!`, ephemeral: true });
   },
 };
