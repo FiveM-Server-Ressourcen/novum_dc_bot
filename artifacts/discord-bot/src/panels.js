@@ -3,10 +3,128 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  AttachmentBuilder,
 } from 'discord.js';
 import { CHANNELS, PING_ROLES } from './config.js';
+import { BANNER_PATH } from './generateBanner.js';
+import { existsSync } from 'fs';
+
+// ── Regeln ──────────────────────────────────────────────────────────────────
+const RULES_EMBED = new EmbedBuilder()
+  .setColor(0x8a2be2)
+  .setTitle('📜 Serverregeln — NOVUM Roleplay')
+  .setDescription(
+    '> Bitte lies alle Regeln sorgfältig durch. Unwissenheit schützt nicht vor Konsequenzen.\n\u200b'
+  )
+  .addFields(
+    {
+      name: '§1 · Allgemeines Verhalten',
+      value:
+        '• Respektvoller Umgang miteinander — Beleidigungen, Diskriminierung oder Hassrede sind **verboten**\n' +
+        '• Kein Spam, kein Flooding, kein übermäßiges Großschreiben\n' +
+        '• Werbung für andere Server ist **nicht gestattet**\n' +
+        '• Bots und Selfbots sind verboten',
+    },
+    {
+      name: '§2 · Roleplay-Regeln',
+      value:
+        '• **RDM** (Random Deathmatch) — grundloses Töten ist verboten\n' +
+        '• **VDM** (Vehicle Deathmatch) — Fahrzeuge als Waffe ohne RP-Grund ist verboten\n' +
+        '• **Powergaming** — unrealistische Handlungen erzwingen ist untersagt\n' +
+        '• **Metagaming** — OOC-Wissen im RP nutzen ist verboten\n' +
+        '• **NLR** (New Life Rule) — nach dem Tod vergisst du alles aus dem letzten Leben',
+    },
+    {
+      name: '§3 · Kommunikation',
+      value:
+        '• Spreche in den richtigen Kanälen (IC vs. OOC beachten)\n' +
+        '• Keine NSFW-Inhalte in Text- oder Sprachkanälen\n' +
+        '• Bleibe im RP so lange wie möglich — OOC-Abbrüche nur wenn nötig',
+    },
+    {
+      name: '§4 · Fahrzeuge & Gegenstände',
+      value:
+        '• Fahrzeuge dürfen nur auf legale oder RP-konforme Weise genutzt werden\n' +
+        '• Exploits, Bugs oder Glitches müssen sofort via Ticket gemeldet werden\n' +
+        '• Das absichtliche Ausnutzen von Bugs führt zu permanentem Bann',
+    },
+    {
+      name: '§5 · Team & Administration',
+      value:
+        '• Entscheidungen des Teams sind zu respektieren\n' +
+        '• Beschwerden gegen Teammitglieder bitte per Ticket einreichen\n' +
+        '• Das Team hat das letzte Wort bei Regelauslegungen',
+    },
+    {
+      name: '§6 · Sanktionen',
+      value:
+        '• Verwarnungen → Temporärer Bann → Permanenter Bann\n' +
+        '• Schwere Verstöße (Exploits, Hacks) führen zu sofortigem Bann\n' +
+        '• Bann-Appeals können per Ticket eingereicht werden',
+    },
+    {
+      name: '\u200b',
+      value: '*Mit dem Betreten des Servers stimmst du diesen Regeln zu.*',
+    }
+  )
+  .setFooter({ text: 'NOVUM RP • Zuletzt aktualisiert' })
+  .setTimestamp();
+
+// ── Start Hier ───────────────────────────────────────────────────────────────
+const STARTHIER_EMBED = new EmbedBuilder()
+  .setColor(0x8a2be2)
+  .setTitle('🚀 Start Hier — Dein Einstieg in NOVUM RP')
+  .setDescription(
+    '> Willkommen! Folge diesen Schritten um vollständig auf dem Server durchzustarten.\n\u200b'
+  )
+  .addFields(
+    {
+      name: '1️⃣  Regeln lesen',
+      value: `→ Lies zuerst alle Regeln in <#${CHANNELS.regeln}> durch.\nOhne Regelkenntnis kein Roleplay.`,
+    },
+    {
+      name: '2️⃣  Ping-Rollen holen',
+      value: `→ Gehe zu <#${CHANNELS.pingRollen}> und wähle deine Benachrichtigungsrollen.\nVerpasse keine Ankündigungen oder Events.`,
+    },
+    {
+      name: '3️⃣  Server joinen',
+      value: '→ Verbinde dich mit unserem FiveM-Server:\n```\nconnect novum-rp.de\n```\nAlternativ über die FiveM-Serverliste: **NOVUM RP**',
+    },
+    {
+      name: '4️⃣  Charakter erstellen',
+      value: '→ Beim ersten Login wirst du durch die Charaktererstellung geführt.\nWähle einen realistischen Namen und Hintergrund für deinen Charakter.',
+    },
+    {
+      name: '5️⃣  Fragen & Hilfe',
+      value: `→ Bei Fragen oder Problemen erstelle ein Ticket in <#${CHANNELS.tickets}>.\n→ Bugs kannst du in <#${CHANNELS.bugReport}> melden.\n→ Unser Team hilft dir gerne weiter!`,
+    },
+    {
+      name: '\u200b',
+      value: '**Viel Spaß beim Roleplay! 🎮**\n*Das NOVUM RP Team freut sich auf dich.*',
+    }
+  )
+  .setFooter({ text: 'NOVUM RP • Server-Guide' });
+
+// ────────────────────────────────────────────────────────────────────────────
 
 const PANEL_DEFS = [
+  // ── Regeln ────────────────────────────────────────────────────────────────
+  {
+    key: 'regeln',
+    channelId: CHANNELS.regeln,
+    title: RULES_EMBED.data.title,
+    build: () => ({ embeds: [RULES_EMBED], components: [] }),
+  },
+
+  // ── Start Hier ────────────────────────────────────────────────────────────
+  {
+    key: 'startHier',
+    channelId: CHANNELS.startHier,
+    title: STARTHIER_EMBED.data.title,
+    build: () => ({ embeds: [STARTHIER_EMBED], components: [] }),
+  },
+
+  // ── Support-Panels ────────────────────────────────────────────────────────
   {
     key: 'tickets',
     channelId: CHANNELS.tickets,
@@ -130,6 +248,8 @@ const PANEL_DEFS = [
     },
   },
 ];
+
+// ── Hilfsfunktionen ──────────────────────────────────────────────────────────
 
 async function findExistingPanel(channel, title, botId) {
   try {

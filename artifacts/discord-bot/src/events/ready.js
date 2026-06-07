@@ -1,6 +1,7 @@
 import { ActivityType } from 'discord.js';
 import { syncPanels } from '../panels.js';
 import { setupChannelPermissions, setupRoles } from '../setupPermissions.js';
+import { generateWelcomeBanner } from '../generateBanner.js';
 
 export default {
   name: 'ready',
@@ -15,22 +16,26 @@ export default {
       return;
     }
 
-    // Guild-Daten vollständig laden (wichtig für Cache)
+    // Guild-Daten vollständig laden
     await guild.members.fetchMe();
     await guild.roles.fetch();
     await guild.channels.fetch();
 
-    // 1️⃣ Rollen konfigurieren
+    // 1️⃣ Welcome-Banner generieren
+    console.log('[Setup] Generiere Welcome-Banner...');
+    await generateWelcomeBanner();
+
+    // 2️⃣ Rollen konfigurieren
     console.log('[Setup] Prüfe Rollen...');
     const rolesChanged = await setupRoles(guild);
     console.log(`[Setup] Rollen: ${rolesChanged} Änderungen vorgenommen.`);
 
-    // 2️⃣ Kanal-Berechtigungen setzen
+    // 3️⃣ Kanal-Berechtigungen setzen
     console.log('[Setup] Prüfe Kanal-Berechtigungen...');
     const permsChanged = await setupChannelPermissions(guild);
     console.log(`[Setup] Berechtigungen: ${permsChanged} Änderungen vorgenommen.`);
 
-    // 3️⃣ Panels synchronisieren
+    // 4️⃣ Panels synchronisieren (inkl. Regeln & Start-Hier)
     console.log('[Setup] Synchronisiere Panels...');
     await syncPanels(client);
     console.log('[Bot] ✅ Alles synchronisiert und bereit.');

@@ -1,5 +1,7 @@
-import { EmbedBuilder } from 'discord.js';
+import { EmbedBuilder, AttachmentBuilder } from 'discord.js';
 import { CHANNELS, ROLES } from '../config.js';
+import { BANNER_PATH } from '../generateBanner.js';
+import { existsSync } from 'fs';
 
 export default {
   name: 'guildMemberAdd',
@@ -16,21 +18,30 @@ export default {
     const welcomeChannel = guild.channels.cache.get(CHANNELS.willkommen);
     if (!welcomeChannel) return;
 
+    const files = [];
     const embed = new EmbedBuilder()
-      .setColor(0x5865f2)
-      .setTitle('💫 Willkommen auf NOVUM!')
+      .setColor(0x8a2be2)
       .setDescription(
-        `Hey ${member}, schön dass du zu uns gefunden hast!\n\n` +
-        `**Hier findest du alles was du brauchst:**\n` +
-        `📜 Lies zuerst unsere <#${CHANNELS.regeln}>\n` +
-        `🚀 Starte mit <#${CHANNELS.startHier}>\n` +
-        `🎟️ Bei Fragen öffne ein <#${CHANNELS.tickets}>\n\n` +
-        `Wir freuen uns auf dich! 🎉`
+        `## 🌆 Willkommen auf NOVUM RP, ${member}!\n\n` +
+        `Schön, dass du den Weg in unsere Stadt gefunden hast.\n` +
+        `Du bist unser **${guild.memberCount}. Mitglied** — mach's dir gemütlich.\n\n` +
+        `**🚀 So legst du los:**\n` +
+        `> 📜 Lies unsere <#${CHANNELS.regeln}> durch\n` +
+        `> 🏁 Schau dir <#${CHANNELS.startHier}> an\n` +
+        `> 🔔 Hol dir Rollen in <#${CHANNELS.pingRollen}>\n` +
+        `> 🎟️ Bei Fragen → <#${CHANNELS.tickets}>\n\n` +
+        `*Viel Spaß im Roleplay!* 🎮`
       )
-      .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-      .setFooter({ text: `Mitglied #${guild.memberCount}` })
-      .setTimestamp();
+      .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 256 }))
+      .setFooter({ text: `NOVUM Roleplay Server • ${new Date().toLocaleDateString('de-DE')}` });
 
-    await welcomeChannel.send({ content: `${member}`, embeds: [embed] });
+    // Banner anhängen wenn vorhanden
+    if (existsSync(BANNER_PATH)) {
+      const banner = new AttachmentBuilder(BANNER_PATH, { name: 'welcome_banner.jpg' });
+      files.push(banner);
+      embed.setImage('attachment://welcome_banner.jpg');
+    }
+
+    await welcomeChannel.send({ content: `${member}`, embeds: [embed], files });
   },
 };
