@@ -6,7 +6,6 @@ import {
 } from 'discord.js';
 import { CHANNELS, PING_ROLES } from './config.js';
 
-// Jedes Panel hat einen eindeutigen Titel — daran erkennt der Bot ob es schon existiert
 const PANEL_DEFS = [
   {
     key: 'tickets',
@@ -18,14 +17,15 @@ const PANEL_DEFS = [
         .setTitle('🎟️ Support Tickets')
         .setDescription(
           'Benötigst du Hilfe? Unser Support-Team ist für dich da!\n\n' +
-          '→ Klicke auf **Ticket erstellen**\n' +
-          '→ Beschreibe dein Anliegen\n' +
-          '→ Warte auf eine Antwort des Teams\n\n' +
+          '**1.** Klicke auf **Ticket erstellen**\n' +
+          '**2.** Wähle deine Kategorie\n' +
+          '**3.** Beschreibe dein Anliegen\n' +
+          '**4.** Warte auf eine Antwort des Teams\n\n' +
           '*Bitte öffne nur ein Ticket gleichzeitig.*'
         );
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId('create_ticket')
+          .setCustomId('open_ticket_select')
           .setLabel('🎟️ Ticket erstellen')
           .setStyle(ButtonStyle.Primary)
       );
@@ -67,7 +67,7 @@ const PANEL_DEFS = [
           'Regelverstoß beobachtet? Melde es dem Team!\n\n' +
           '→ Klicke auf **Spieler melden**\n' +
           '→ Halte Beweise bereit (Screenshots, Videos)\n' +
-          '→ Alle Meldungen werden vertraulich behandelt\n\n' +
+          '→ Alle Meldungen werden **vertraulich** behandelt\n\n' +
           '*Missbrauch des Systems kann zu Sanktionen führen.*'
         );
       const row = new ActionRowBuilder().addComponents(
@@ -117,7 +117,6 @@ const PANEL_DEFS = [
           'Ein Klick gibt dir die Rolle, ein weiterer Klick entfernt sie wieder.\n\n' +
           PING_ROLES.map(r => `${r.label} — ${r.description}`).join('\n')
         );
-
       const row = new ActionRowBuilder();
       for (const role of PING_ROLES) {
         row.addComponents(
@@ -132,26 +131,16 @@ const PANEL_DEFS = [
   },
 ];
 
-/**
- * Sucht in einem Kanal nach einer bestehenden Bot-Nachricht mit dem Panel-Titel.
- * Gibt die Nachricht zurück oder null.
- */
 async function findExistingPanel(channel, title, botId) {
   try {
     const messages = await channel.messages.fetch({ limit: 50 });
-    return messages.find(
-      m => m.author.id === botId && m.embeds?.[0]?.title === title
-    ) ?? null;
+    return messages.find(m => m.author.id === botId && m.embeds?.[0]?.title === title) ?? null;
   } catch {
     return null;
   }
 }
 
-/**
- * Postet oder updated alle Panels automatisch beim Bot-Start.
- */
 export async function syncPanels(client) {
-  // Wir brauchen genau eine Guild — falls der Bot auf mehreren Servern ist, hier iterieren
   const guild = client.guilds.cache.first();
   if (!guild) return;
 
@@ -161,16 +150,12 @@ export async function syncPanels(client) {
       console.log(`[Panels] ⚠️  Kanal für "${def.key}" nicht gefunden (${def.channelId})`);
       continue;
     }
-
-    const payload    = def.build();
-    const existing   = await findExistingPanel(channel, def.title, client.user.id);
-
+    const payload  = def.build();
+    const existing = await findExistingPanel(channel, def.title, client.user.id);
     if (existing) {
-      // Panel existiert bereits → updaten
       await existing.edit(payload);
       console.log(`[Panels] ✏️  "${def.title}" aktualisiert in #${channel.name}`);
     } else {
-      // Noch nicht vorhanden → neu posten
       await channel.send(payload);
       console.log(`[Panels] ✅  "${def.title}" gepostet in #${channel.name}`);
     }
