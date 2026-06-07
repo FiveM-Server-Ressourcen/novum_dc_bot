@@ -3,65 +3,65 @@ import {
   PermissionFlagsBits,
   EmbedBuilder,
 } from 'discord.js';
+import { getChannel } from '../config.js';
+
+const KANAL_CHOICES = [
+  { name: '📣 Ankündigungen', value: 'ankuendigungen' },
+  { name: '🛠️ Updates',       value: 'updates' },
+  { name: '📅 Events',        value: 'events' },
+];
 
 export default {
   data: new SlashCommandBuilder()
     .setName('announce')
-    .setDescription('Erstellt eine Ankündigung')
+    .setDescription('Erstellt eine Ankündigung in einem konfigurierten Kanal')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
+    .addStringOption(opt =>
+      opt.setName('kanal').setDescription('Zielkanal').setRequired(true).addChoices(...KANAL_CHOICES)
+    )
     .addStringOption(opt =>
       opt.setName('titel').setDescription('Titel der Ankündigung').setRequired(true)
     )
     .addStringOption(opt =>
       opt.setName('nachricht').setDescription('Inhalt der Ankündigung').setRequired(true)
     )
-    .addStringOption(opt =>
-      opt.setName('kanal')
-        .setDescription('Zielkanal')
-        .setRequired(false)
-        .addChoices(
-          { name: '📣 Ankündigungen', value: 'ankündigungen' },
-          { name: '🛠️ Updates', value: 'updates' },
-          { name: '📡 Server Status', value: 'server-status' },
-          { name: '📅 Events', value: 'events' },
-        )
+    .addBooleanOption(opt =>
+      opt.setName('ping').setDescription('@everyone erwähnen? (Standard: nein)').setRequired(false)
     ),
 
   async execute(interaction) {
-    const titel = interaction.options.getString('titel');
+    const kanalKey  = interaction.options.getString('kanal');
+    const titel     = interaction.options.getString('titel');
     const nachricht = interaction.options.getString('nachricht');
-    const kanalName = interaction.options.getString('kanal') ?? 'ankündigungen';
+    const ping      = interaction.options.getBoolean('ping') ?? false;
 
-    const targetChannel = interaction.guild.channels.cache.find(
-      c => c.name === kanalName && c.isTextBased()
-    );
-
-    if (!targetChannel) {
-      return interaction.reply({ content: `❌ Kanal \`${kanalName}\` nicht gefunden. Bitte zuerst \`/setup\` ausführen.`, ephemeral: true });
+    const channel = getChannel(interaction.guild, kanalKey);
+    if (!channel) {
+      return interaction.reply({
+        content: `❌ Kanal nicht konfiguriert. Nutze \`/setchannel\` um ihn zu verknüpfen.`,
+        ephemeral: true,
+      });
     }
 
     const colorMap = {
-      'ankündigungen': 0x5865f2,
-      'updates': 0x57f287,
-      'server-status': 0xed4245,
-      'events': 0xfee75c,
+      ankuendigungen: 0x5865f2,
+      updates:        0x57f287,
+      events:         0xfee75c,
     };
-
     const emojiMap = {
-      'ankündigungen': '📣',
-      'updates': '🛠️',
-      'server-status': '📡',
-      'events': '📅',
+      ankuendigungen: '📣',
+      updates:        '🛠️',
+      events:         '📅',
     };
 
     const embed = new EmbedBuilder()
-      .setColor(colorMap[kanalName] ?? 0x5865f2)
-      .setTitle(`${emojiMap[kanalName] ?? '📢'} ${titel}`)
+      .setColor(colorMap[kanalKey] ?? 0x5865f2)
+      .setTitle(`${emojiMap[kanalKey] ?? '📢'} ${titel}`)
       .setDescription(nachricht)
       .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() })
       .setTimestamp();
 
-    await targetChannel.send({ content: '@everyone', embeds: [embed] });
-    await interaction.reply({ content: `✅ Ankündigung in ${targetChannel} gepostet!`, ephemeral: true });
+    await channel.send({ content: ping ? '@everyone' : undefined, embeds: [embed] });
+    await interaction.reply({ content: `✅ Ankündigung in ${channel} gepostet!`, ephemeral: true });
   },
 };
