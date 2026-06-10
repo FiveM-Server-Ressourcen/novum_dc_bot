@@ -18,6 +18,7 @@ export const CHANNELS = {
   spielerMeldungen:  '1513087681695973396',   // Panel-Kanal (Button)
   supportInfo:       '1513087756434276392',
   pingRollen:        '1513132932636741693',
+  bewerbungen:       'PLACEHOLDER_BEWERBUNGEN_KANAL',  // ← Kanal-ID für den Bewerbungs-Panel eintragen
 };
 
 // ── Forum-Kanäle (Posts landen hier) ────────────────────────────
@@ -25,6 +26,7 @@ export const FORUMS = {
   tickets:          '1513136309001257033',   // Ticket-Posts + User wird hinzugefügt
   bugReport:        '1513136038309007480',   // Bug-Report-Posts (anonym)
   spielerMeldungen: '1513135960303599666',   // Spieler-Meldungs-Posts (anonym)
+  bewerbungen:      'PLACEHOLDER_BEWERBUNGEN_FORUM',  // ← Forum-Kanal-ID für Bewerbungen (nur Team sichtbar)
 };
 
 // ── Forum-Tags (werden beim Start automatisch angelegt) ──────────
@@ -53,6 +55,20 @@ export const REPORT_TAGS = {
   bestraft:    { name: 'Bestraft',      emoji: '✅' },
   abgelehnt:   { name: 'Abgelehnt',    emoji: '❌' },
 };
+
+export const BEWERBUNG_TAGS = {
+  neu:         { name: 'Neu',           emoji: '📋' },
+  inPruefung:  { name: 'In Prüfung',   emoji: '🔄' },
+  angenommen:  { name: 'Angenommen',   emoji: '✅' },
+  abgelehnt:   { name: 'Abgelehnt',    emoji: '❌' },
+};
+
+// ── Bewerbungs-Positionen ────────────────────────────────────────
+export const BEWERBUNG_POSITIONEN = [
+  { id: 'support',   label: '🎧 Support',   desc: 'Spieler unterstützen & Tickets bearbeiten', roleKey: 'support'   },
+  { id: 'moderator', label: '🛡️ Moderator', desc: 'Regeln durchsetzen & Server moderieren',    roleKey: 'moderator' },
+  { id: 'developer', label: '💻 Developer', desc: 'Scripts & Features entwickeln',             roleKey: 'developer' },
+];
 
 // ── Ticket-Kategorien ────────────────────────────────────────────
 export const TICKET_CATEGORIES = [

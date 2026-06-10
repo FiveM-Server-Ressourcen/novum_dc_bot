@@ -8,7 +8,7 @@ import {
   ButtonStyle,
   StringSelectMenuBuilder,
 } from 'discord.js';
-import { CHANNELS, FORUMS, ROLES, TICKET_CATEGORIES, TICKET_TAGS, BUG_TAGS, REPORT_TAGS, PING_ROLES } from '../config.js';
+import { CHANNELS, FORUMS, ROLES, TICKET_CATEGORIES, TICKET_TAGS, BUG_TAGS, REPORT_TAGS, PING_ROLES, BEWERBUNG_TAGS, BEWERBUNG_POSITIONEN } from '../config.js';
 import { hasPermission, getPermLevel, isTeam } from '../permissions.js';
 import { ensureTags, getTagId, setThreadTags } from '../forum.js';
 
@@ -58,6 +58,7 @@ async function handleSlash(interaction, client) {
 
 async function handleSelect(interaction) {
   if (interaction.customId === 'ticket_category') return showTicketModal(interaction);
+  if (interaction.customId === 'apply_position')  return showApplicationModal(interaction);
 }
 
 async function handleButton(interaction) {
@@ -71,14 +72,19 @@ async function handleButton(interaction) {
   if (id.startsWith('bug_'))               return handleBugStatus(interaction);
   if (id.startsWith('report_'))            return handleReportStatus(interaction);
   if (id.startsWith('pingrole_'))          return handlePingRole(interaction);
+  if (id === 'apply_btn')                  return showPositionSelect(interaction);
+  if (id.startsWith('apply_accept_'))      return handleApplicationAccept(interaction);
+  if (id.startsWith('apply_reject_'))      return showRejectModal(interaction);
 }
 
 async function handleModal(interaction) {
   const id = interaction.customId;
-  if (id.startsWith('ticket_modal_'))  return handleTicketCreate(interaction);
-  if (id === 'bug_modal')              return handleBugReport(interaction);
-  if (id === 'player_report_modal')    return handlePlayerReport(interaction);
-  if (id === 'ticket_close_modal')     return handleTicketClose(interaction);
+  if (id.startsWith('ticket_modal_'))       return handleTicketCreate(interaction);
+  if (id === 'bug_modal')                   return handleBugReport(interaction);
+  if (id === 'player_report_modal')         return handlePlayerReport(interaction);
+  if (id === 'ticket_close_modal')          return handleTicketClose(interaction);
+  if (id.startsWith('apply_modal_'))        return handleApplicationSubmit(interaction);
+  if (id.startsWith('apply_reject_reason_')) return handleApplicationReject(interaction);
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -539,6 +545,312 @@ async function handleReportStatus(interaction) {
   if (id === 'report_bestraft' || id === 'report_abgelehnt') {
     setTimeout(() => interaction.channel.setArchived(true).catch(console.error), 5_000);
   }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  BEWERBUNGSSYSTEM
+// ════════════════════════════════════════════════════════════════
+
+async function showPositionSelect(interaction) {
+  const select = new StringSelectMenuBuilder()
+    .setCustomId('apply_position')
+    .setPlaceholder('Wähle eine Position...')
+    .addOptions(
+      BEWERBUNG_POSITIONEN.map(p => ({
+        label:       p.label,
+        description: p.desc,
+        value:       p.id,
+      }))
+    );
+
+  await interaction.reply({
+    content: '**📋 Team-Bewerbung — NOVUM RP**\nFür welche Position möchtest du dich bewerben?',
+    components: [new ActionRowBuilder().addComponents(select)],
+    ephemeral: true,
+  });
+}
+
+async function showApplicationModal(interaction) {
+  const posId = interaction.values[0];
+  const pos   = BEWERBUNG_POSITIONEN.find(p => p.id === posId);
+  if (!pos) return interaction.reply({ content: '❌ Position nicht gefunden.', ephemeral: true });
+
+  const modal = new ModalBuilder()
+    .setCustomId(`apply_modal_${posId}`)
+    .setTitle(`Bewerbung — ${pos.label}`);
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('apply_age')
+        .setLabel('Wie alt bist du?')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('z.B. 18')
+        .setMinLength(1).setMaxLength(3)
+        .setRequired(true)
+    ),
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('apply_ingame')
+        .setLabel('Dein Ingame-Name (FiveM)')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('z.B. Max Mustermann')
+        .setMaxLength(50)
+        .setRequired(true)
+    ),
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('apply_hours')
+        .setLabel('Wie viele Stunden pro Woche kannst du aktiv sein?')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('z.B. 10–15 Stunden')
+        .setMaxLength(30)
+        .setRequired(true)
+    ),
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('apply_reason')
+        .setLabel('Warum möchtest du ins Team?')
+        .setStyle(TextInputStyle.Paragraph)
+        .setPlaceholder('Erkläre deine Motivation und was du zum Team beitragen kannst...')
+        .setMinLength(50)
+        .setRequired(true)
+    ),
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('apply_experience')
+        .setLabel('Hast du Vorerfahrung? (Andere Server, Rollen etc.)')
+        .setStyle(TextInputStyle.Paragraph)
+        .setPlaceholder('Beschreibe deine Erfahrungen — auch "Keine Erfahrung" ist in Ordnung.')
+        .setRequired(true)
+    ),
+  );
+
+  await interaction.showModal(modal);
+}
+
+async function handleApplicationSubmit(interaction) {
+  await interaction.deferReply({ ephemeral: true });
+
+  const posId      = interaction.customId.replace('apply_modal_', '');
+  const pos        = BEWERBUNG_POSITIONEN.find(p => p.id === posId);
+  const member     = interaction.member;
+  const guild      = interaction.guild;
+
+  const age        = interaction.fields.getTextInputValue('apply_age');
+  const ingame     = interaction.fields.getTextInputValue('apply_ingame');
+  const hours      = interaction.fields.getTextInputValue('apply_hours');
+  const reason     = interaction.fields.getTextInputValue('apply_reason');
+  const experience = interaction.fields.getTextInputValue('apply_experience');
+
+  const forumChannel = guild.channels.cache.get(FORUMS.bewerbungen);
+  if (!forumChannel) return interaction.editReply('❌ Bewerbungs-Forum nicht gefunden. Bitte einen Admin kontaktieren.');
+
+  // Duplikat-Check — nur eine offene Bewerbung pro User
+  await forumChannel.threads.fetchActive();
+  const existing = forumChannel.threads.cache.find(
+    t => !t.archived && t.name.toLowerCase().includes(member.user.username.toLowerCase())
+  );
+  if (existing) {
+    return interaction.editReply(`❌ Du hast bereits eine offene Bewerbung: ${existing}\nBitte warte auf eine Rückmeldung des Teams.`);
+  }
+
+  await ensureTags(forumChannel, BEWERBUNG_TAGS);
+  const tagNeu = getTagId(forumChannel, BEWERBUNG_TAGS.neu.name);
+
+  const embed = new EmbedBuilder()
+    .setColor(0x8a2be2)
+    .setTitle(`📋 Bewerbung — ${pos.label}`)
+    .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
+    .addFields(
+      { name: '👤 Bewerber',         value: `${member} (${member.user.tag})`,             inline: true },
+      { name: '🎯 Position',         value: pos.label,                                    inline: true },
+      { name: '🎂 Alter',            value: age,                                          inline: true },
+      { name: '🎮 Ingame-Name',      value: ingame,                                       inline: true },
+      { name: '⏱️ Verfügbarkeit',    value: hours,                                        inline: true },
+      { name: '📅 Eingereicht am',   value: `<t:${Math.floor(Date.now() / 1000)}:F>`,    inline: true },
+      { name: '💬 Motivation',       value: reason },
+      { name: '📚 Vorerfahrung',     value: experience },
+    )
+    .setFooter({ text: `User-ID: ${member.user.id}` })
+    .setTimestamp();
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`apply_accept_${member.user.id}_${posId}`)
+      .setLabel('✅ Annehmen')
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(`apply_reject_${member.user.id}`)
+      .setLabel('❌ Ablehnen')
+      .setStyle(ButtonStyle.Danger),
+  );
+
+  const thread = await forumChannel.threads.create({
+    name: `${member.user.username} — ${pos.label}`.slice(0, 100),
+    message: { embeds: [embed], components: [row] },
+    appliedTags: [tagNeu].filter(Boolean),
+  });
+
+  // Management & Admin benachrichtigen
+  await thread.send({
+    content: `<@&${ROLES.management}> <@&${ROLES.admin}> — neue Bewerbung von ${member} für **${pos.label}**`,
+    allowedMentions: { roles: [ROLES.management, ROLES.admin] },
+  });
+
+  await interaction.editReply(
+    '✅ **Deine Bewerbung wurde erfolgreich eingereicht!**\n\n' +
+    'Das Team wird sie so schnell wie möglich prüfen. Du wirst per DM benachrichtigt sobald eine Entscheidung getroffen wurde.\n\n' +
+    '*Bewirb dich in der Zwischenzeit nicht mehrfach — das kann deine Bewerbung negativ beeinflussen.*'
+  );
+}
+
+async function handleApplicationAccept(interaction) {
+  if (!isTeam(interaction.member) || getPermLevel(interaction.member) < 4) {
+    return interaction.reply({ content: '❌ Nur Admins+ können Bewerbungen annehmen.', ephemeral: true });
+  }
+
+  await interaction.deferReply();
+
+  const parts  = interaction.customId.replace('apply_accept_', '').split('_');
+  const userId = parts[0];
+  const posId  = parts[1];
+  const pos    = BEWERBUNG_POSITIONEN.find(p => p.id === posId);
+  const guild  = interaction.guild;
+
+  // Rolle vergeben
+  let roleMention = '';
+  if (pos) {
+    const role = guild.roles.cache.get(ROLES[pos.roleKey]);
+    if (role) {
+      const targetMember = await guild.members.fetch(userId).catch(() => null);
+      if (targetMember) {
+        await targetMember.roles.add(role).catch(console.error);
+        roleMention = ` und die Rolle **${role.name}** wurde vergeben`;
+      }
+    }
+  }
+
+  // DM an Bewerber
+  try {
+    const targetUser = await interaction.client.users.fetch(userId);
+    const dmEmbed = new EmbedBuilder()
+      .setColor(0x57f287)
+      .setTitle('✅ Bewerbung angenommen — NOVUM RP')
+      .setDescription(
+        `Herzlichen Glückwunsch! Deine Bewerbung als **${pos?.label ?? 'Teammitglied'}** wurde **angenommen**.\n\n` +
+        `Du bist nun offiziell Teil des NOVUM Teams. Willkommen an Bord! 🎉\n\n` +
+        `Melde dich bei einem Admin für deine Einweisung.`
+      )
+      .setTimestamp()
+      .setFooter({ text: 'NOVUM RP Team' });
+    await targetUser.send({ embeds: [dmEmbed] }).catch(() => null);
+  } catch { /* User hat DMs deaktiviert */ }
+
+  // Tags aktualisieren
+  const forumChannel = guild.channels.cache.get(FORUMS.bewerbungen);
+  if (forumChannel) {
+    await ensureTags(forumChannel, BEWERBUNG_TAGS);
+    const tagAngenommen = getTagId(forumChannel, BEWERBUNG_TAGS.angenommen.name);
+    const allTagIds     = Object.values(BEWERBUNG_TAGS).map(t => getTagId(forumChannel, t.name)).filter(Boolean);
+    const remaining     = interaction.channel.appliedTags.filter(id => !allTagIds.includes(id));
+    await setThreadTags(interaction.channel, [...remaining, tagAngenommen].filter(Boolean));
+  }
+
+  await interaction.channel.edit({ name: interaction.channel.name.replace(/^.*? — /, '✅ ').slice(0, 100) });
+
+  await interaction.editReply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0x57f287)
+        .setTitle('✅ Bewerbung angenommen')
+        .setDescription(`<@${userId}> wurde ins Team aufgenommen${roleMention}.\nDer Bewerber wurde per DM benachrichtigt.`)
+        .addFields({ name: '🛡️ Bearbeitet von', value: `${interaction.user}`, inline: true })
+        .setTimestamp(),
+    ],
+    components: [],
+  });
+
+  setTimeout(() => interaction.channel.setArchived(true).catch(console.error), 8_000);
+}
+
+async function showRejectModal(interaction) {
+  if (!isTeam(interaction.member) || getPermLevel(interaction.member) < 4) {
+    return interaction.reply({ content: '❌ Nur Admins+ können Bewerbungen ablehnen.', ephemeral: true });
+  }
+
+  const userId = interaction.customId.replace('apply_reject_', '');
+
+  const modal = new ModalBuilder()
+    .setCustomId(`apply_reject_reason_${userId}`)
+    .setTitle('❌ Bewerbung ablehnen');
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('reject_reason')
+        .setLabel('Ablehnungsgrund (wird dem Bewerber mitgeteilt)')
+        .setStyle(TextInputStyle.Paragraph)
+        .setPlaceholder('z.B. Zu wenig Erfahrung, Alter unter Mindestanforderung...')
+        .setRequired(true)
+    )
+  );
+
+  await interaction.showModal(modal);
+}
+
+async function handleApplicationReject(interaction) {
+  await interaction.deferReply();
+
+  const userId = interaction.customId.replace('apply_reject_reason_', '');
+  const reason = interaction.fields.getTextInputValue('reject_reason');
+  const guild  = interaction.guild;
+
+  // DM an Bewerber
+  try {
+    const targetUser = await interaction.client.users.fetch(userId);
+    const dmEmbed = new EmbedBuilder()
+      .setColor(0xed4245)
+      .setTitle('❌ Bewerbung abgelehnt — NOVUM RP')
+      .setDescription(
+        'Deine Bewerbung wurde leider **abgelehnt**.\n\n' +
+        `**Grund:** ${reason}\n\n` +
+        'Lass dich nicht entmutigen — du kannst dich in Zukunft erneut bewerben!\n' +
+        'Bei Fragen kannst du ein Ticket erstellen.'
+      )
+      .setTimestamp()
+      .setFooter({ text: 'NOVUM RP Team' });
+    await targetUser.send({ embeds: [dmEmbed] }).catch(() => null);
+  } catch { /* User hat DMs deaktiviert */ }
+
+  // Tags aktualisieren
+  const forumChannel = guild.channels.cache.get(FORUMS.bewerbungen);
+  if (forumChannel) {
+    await ensureTags(forumChannel, BEWERBUNG_TAGS);
+    const tagAbgelehnt = getTagId(forumChannel, BEWERBUNG_TAGS.abgelehnt.name);
+    const allTagIds    = Object.values(BEWERBUNG_TAGS).map(t => getTagId(forumChannel, t.name)).filter(Boolean);
+    const remaining    = interaction.channel.appliedTags.filter(id => !allTagIds.includes(id));
+    await setThreadTags(interaction.channel, [...remaining, tagAbgelehnt].filter(Boolean));
+  }
+
+  await interaction.channel.edit({ name: interaction.channel.name.replace(/^.*? — /, '❌ ').slice(0, 100) });
+
+  await interaction.editReply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0xed4245)
+        .setTitle('❌ Bewerbung abgelehnt')
+        .setDescription(`<@${userId}> wurde abgelehnt. Der Bewerber wurde per DM benachrichtigt.`)
+        .addFields(
+          { name: '🛡️ Bearbeitet von', value: `${interaction.user}`, inline: true },
+          { name: '📋 Grund',          value: reason },
+        )
+        .setTimestamp(),
+    ],
+    components: [],
+  });
+
+  setTimeout(() => interaction.channel.setArchived(true).catch(console.error), 8_000);
 }
 
 // ════════════════════════════════════════════════════════════════

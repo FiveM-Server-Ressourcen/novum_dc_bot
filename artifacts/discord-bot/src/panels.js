@@ -4,7 +4,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
 } from 'discord.js';
-import { CHANNELS, PING_ROLES } from './config.js';
+import { CHANNELS, PING_ROLES, BEWERBUNG_POSITIONEN } from './config.js';
 
 // ── Regeln ──────────────────────────────────────────────────────────────────
 const RULES_EMBED = new EmbedBuilder()
@@ -219,6 +219,41 @@ const PANEL_DEFS = [
       return { embeds: [embed], components: [] };
     },
   },
+  // ── Bewerbungen ───────────────────────────────────────────────────────────
+  {
+    key: 'bewerbungen',
+    channelId: CHANNELS.bewerbungen,
+    title: '📋 Team-Bewerbungen',
+    build: () => {
+      const embed = new EmbedBuilder()
+        .setColor(0x8a2be2)
+        .setTitle('📋 Team-Bewerbungen — NOVUM RP')
+        .setDescription(
+          'Du möchtest Teil des **NOVUM Teams** werden?\nHier kannst du dich für eine Position bewerben!\n\n' +
+          '**Verfügbare Positionen:**\n' +
+          BEWERBUNG_POSITIONEN.map(p => `${p.label} — ${p.desc}`).join('\n') +
+          '\n\n' +
+          '**Voraussetzungen:**\n' +
+          '• Mindestens 14 Tage auf dem Server\n' +
+          '• Aktives Mitglied der Community\n' +
+          '• Keine offenen Verwarnungen\n' +
+          '• Mindestalter: 16 Jahre\n\n' +
+          '*Das Team prüft jede Bewerbung sorgfältig. Du wirst per DM über das Ergebnis informiert.*'
+        )
+        .setFooter({ text: 'NOVUM RP • Bewerbungsystem' })
+        .setTimestamp();
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('apply_btn')
+          .setLabel('📋 Jetzt bewerben')
+          .setStyle(ButtonStyle.Primary)
+      );
+
+      return { embeds: [embed], components: [row] };
+    },
+  },
+
   {
     key: 'pingRollen',
     channelId: CHANNELS.pingRollen,
